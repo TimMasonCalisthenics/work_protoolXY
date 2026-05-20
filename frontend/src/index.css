@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@theme {
+  --color-page: rgb(var(--bg-page));
+  --color-card: rgb(var(--bg-card));
+  --color-card-hover: rgb(var(--bg-card-hover));
+
+  --color-primary: rgb(var(--text-primary));
+  --color-secondary: rgb(var(--text-secondary));
+  /* เปลี่ยนจาก Purple เป็น Cyan/Blue */
+  --color-accent: rgb(var(--text-accent));
+
+  --font-sans: Inter, sans-serif;
+
+  --animate-blob: blob 7s infinite;
+
+  @keyframes blob {
+    0% {
+      transform: translate(0px, 0px) scale(1);
+    }
+
+    33% {
+      transform: translate(30px, -50px) scale(1.1);
+    }
+
+    66% {
+      transform: translate(-20px, 20px) scale(0.9);
+    }
+
+    100% {
+      transform: translate(0px, 0px) scale(1);
+    }
+  }
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --bg-page: 248 250 252;
+    --bg-card: 255 255 255;
+    --bg-card-hover: 241 245 249;
+
+    --text-primary: 15 23 42;
+    --text-secondary: 100 116 139;
+    /* เปลี่ยนเป็นสี Cyan-600 */
+    --text-accent: 8 145 178;
+
+    --border-color: 226 232 240;
+    --input-bg: 255 255 255;
+    --input-border: 203 213 225;
+  }
+
+  .dark {
+    --bg-page: 2 6 23;
+    /* Deep Dark */
+    --bg-card: 15 23 42;
+    --bg-card-hover: 30 41 59;
+
+    --text-primary: 248 250 252;
+    --text-secondary: 148 163 184;
+    /* เปลี่ยนเป็นสี Cyan-400 */
+    --text-accent: 34 211 238;
+
+    --border-color: 30 41 59;
+    --input-bg: 15 23 42;
+    --input-border: 51 65 85;
+  }
+}
+
+/* Glassmorphism Utilities */
+@utility glass-card {
+  @apply bg-white/70 dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-100 shadow-xl;
+}
+
+@utility glass-input {
+  /* เปลี่ยน Focus Ring จากม่วงเป็น Cyan */
+  @apply bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition duration-200;
+}
+
+@utility btn-primary {
+  /* ปรับ Gradient ให้ดูดุดันและทันสมัย */
+  @apply bg-gradient-to-br from-slate-800 to-slate-950 dark:from-cyan-600 dark:to-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-cyan-500/20 transform hover:-translate-y-0.5 active:scale-95 transition duration-200 border border-white/10;
+}
+
+/* Scrollbar - เปลี่ยนเป็นโทน Cyan */
+::-webkit-scrollbar-thumb {
+  @apply bg-cyan-500/30 hover:bg-cyan-500/60 rounded;
+}

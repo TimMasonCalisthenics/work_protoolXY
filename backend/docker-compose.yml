@@ -1,0 +1,46 @@
+version: '3.8'
+name: work-measurement
+services:
+  db:
+    image: mysql:8.0
+    restart: always
+    container_name: factory-mysql-db
+    environment:
+      MYSQL_DATABASE: my_database
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_USER: user
+      MYSQL_PASSWORD: user_password
+    ports:
+      - "3306:3306"
+    volumes:
+      # - db_data:/var/lib/mysql
+      - ./mysql_data:/var/lib/mysql
+
+  web:
+    build:
+      context: .
+      target: development
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+      - ./storage/products:/app/storage/products
+    environment:
+      FLASK_DEBUG: 1
+      FLASK_APP: src.app.py
+      DB_HOST: db
+      DB_USER: user
+      DB_PASSWORD: user_password
+      DB_NAME: my_database
+    depends_on:
+      - db
+  frontend:
+    build: ../frontend
+    container_name: factory-frontend
+    restart: always
+    ports:
+      - "80:80" # เข้าเว็บผ่าน IP ของเครื่องได้เลย
+    depends_on:
+      - web
+volumes:
+  db_data:

@@ -1,0 +1,23 @@
+# Web Framework
+Flask==3.0.2
+flask-cors==4.0.0
+
+
+# Database & Migration (Infrastructure Layer)
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.7
+mysql-connector-python==8.3.0
+
+# Data Validation & Clean Architecture (Application Layer)
+pydantic==2.6.1
+python-dotenv==1.0.1
+
+# Task Scheduling
+Flask-APScheduler==1.13.1
+
+# Production Server
+gunicorn==21.2.0               # สำหรับรันบน Docker ในโหมด Production
+waitress==2.1.2
+
+# JWT Authentication
+flask-jwt-extended==4.7.1

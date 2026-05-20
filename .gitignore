@@ -1,0 +1,9 @@
+/frontend/node_modules
+*.pyc
+/backend/src/static
+/sensorService/airgauge/python_version/src/main.dist
+/sensorService/airgauge/python_version/src/bin
+/mysql_data
+/testLoadimage
+*.tar
+Deploy*/

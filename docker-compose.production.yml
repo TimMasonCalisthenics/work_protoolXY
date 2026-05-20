@@ -1,0 +1,44 @@
+version: '3.8'
+name: work-measurement
+
+services:
+  db:
+    image: mysql:8.0
+    restart: always
+    container_name: ${DB_CONTAINER}
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+
+  web:
+    image: work-measurement-backend:latest
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./storage/:/app/static/uploads
+      - ./backend/migrations:/app/migrations
+    environment:
+      - FLASK_DEBUG=0
+      - DB_HOST=db
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - AIR_GAUGE_SERVICE=${AIR_GAUGE_SERVICE}
+    depends_on:
+      - db
+
+  frontend:
+    image: work-measurement-frontend:latest
+    container_name: factory-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - web
