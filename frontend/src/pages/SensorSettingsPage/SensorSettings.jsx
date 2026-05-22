@@ -7,12 +7,12 @@ function SensorSettings() {
 
     const listSensor = [
         {
-            name: 'Mitutoyo',
-            type: 'mitutoyo',
-        },
-        {
             name: 'Airgauge',
             type: 'airgauge',
+        },
+        {
+            name: 'Mitutoyo',
+            type: 'mitutoyo',
         }
     ]
 
@@ -46,14 +46,14 @@ function SensorSettings() {
                 {/* Content Area with Animation */}
                 <div className="transition-all duration-500 ease-in-out">
                     <div className="relative">
-                        {/* Mitutoyo Tab */}
-                        <div className={activeTab === 'mitutoyo' ? 'block animate-in fade-in' : 'hidden'}>
-                            <MitutoyoSettings />
-                        </div>
-
                         {/* Airgauge Tab */}
                         <div className={activeTab === 'airgauge' ? 'block animate-in fade-in' : 'hidden'}>
                             <AirgaugeSettings />
+                        </div>
+
+                        {/* Mitutoyo Tab */}
+                        <div className={activeTab === 'mitutoyo' ? 'block animate-in fade-in' : 'hidden'}>
+                            <MitutoyoSettings />
                         </div>
                     </div>
                 </div>
