@@ -19,7 +19,7 @@ function AirGaugeSettings() {
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [detailModal, setDetailModal] = useState(null);
 
-    const precision = 5;
+    const precision = 3;
     const { fields, append, remove } = useFieldArray({
         control,
         name: "airgauge_list"
