@@ -225,6 +225,39 @@ function AirGaugeSettings() {
             setValue(`airgauge_list.${index}.x`, fixedValue);
         }
     };
+
+    const handleSetAllMax = () => {
+        fields.forEach((field, index) => {
+            const currentX = getValues(`airgauge_list.${index}.x`);
+            setValue(`airgauge_list.${index}.x0`, currentX);
+            setValue(`airgauge_list.${index}.iscalmax`, true);
+        });
+        showSuccess("Set Max for all devices successfully!");
+    };
+
+    const handleResetAllMax = () => {
+        fields.forEach((field, index) => {
+            setValue(`airgauge_list.${index}.iscalmax`, false);
+        });
+        showSuccess("Reset Max for all devices successfully!");
+    };
+
+    const handleSetAllMin = () => {
+        fields.forEach((field, index) => {
+            const currentX = getValues(`airgauge_list.${index}.x`);
+            setValue(`airgauge_list.${index}.x1`, currentX);
+            setValue(`airgauge_list.${index}.iscalmin`, true);
+        });
+        showSuccess("Set Min for all devices successfully!");
+    };
+
+    const handleResetAllMin = () => {
+        fields.forEach((field, index) => {
+            setValue(`airgauge_list.${index}.iscalmin`, false);
+        });
+        showSuccess("Reset Min for all devices successfully!");
+    };
+
     // React-hook-form handles onSubmit validation before calling our update function
     const onSubmit = (data) => handleUpdateJsonFromAPI(data);
     return (
@@ -521,8 +554,32 @@ function AirGaugeSettings() {
                         )}
 
                     </div>
+                    {fields.length > 0 && (
+                        <div className="glass-card p-4 rounded-xl border border-dashed border-accent/30 bg-accent/5 flex flex-col md:flex-row justify-between items-center gap-4 mt-4 shadow-sm">
+                            <div className="text-left">
+                                <span className="text-sm font-bold text-primary block">Bulk Device Operations</span>
+                                <span className="text-xs text-secondary block">Command to set all min/max and reset all min/max</span>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 md:flex md:flex-row gap-3 w-full md:w-auto">
+                                {/* ปุ่มกลุ่มควบคุมฝั่ง MAX */}
+                                <button type="button" onClick={handleSetAllMax} className="bg-accent/10 text-accent px-4 py-2 rounded-lg border border-accent/20 hover:bg-accent/20 text-xs font-bold transition-all flex items-center justify-center gap-1">
+                                    <HiPlus /> Set All Max
+                                </button>
+                                <button type="button" onClick={handleResetAllMax} className="bg-slate/10 text-slate px-4 py-2 rounded-lg border border-slate/20 hover:bg-accent/20 text-xs font-bold transition-all flex items-center justify-center gap-1">
+                                    <HiPlus /> Reset All Max
+                                </button>
 
-
+                                {/* ปุ่มกลุ่มควบคุมฝั่ง MIN */}
+                                <button type="button" onClick={handleSetAllMin} className="bg-accent/10 text-accent px-4 py-2 rounded-lg border border-accent/20 hover:bg-accent/20 text-xs font-bold transition-all flex items-center justify-center gap-1">
+                                    <HiPlus /> Set All Min
+                                </button>
+                                <button type="button" onClick={handleResetAllMin} className="bg-slate/10 text-slate px-4 py-2 rounded-lg border border-slate/20 hover:bg-accent/20 text-xs font-bold transition-all flex items-center justify-center gap-1">
+                                    <HiPlus /> Reset All Min
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </form >
             {detailModal && (
