@@ -485,12 +485,12 @@ function AirGaugeSettings() {
                                             {/* section x value   */}
                                             <div>
                                                 <div>
-                                                    <label className="text-[10px] font-bold text-secondary uppercase">Master Max (x0)</label>
+                                                    <label className="text-[10px] font-bold text-secondary uppercase">Sensor Max (x0)</label>
                                                     <input type="number"
                                                         disabled={isCalMax} step="0.0001" {...register(`airgauge_list.${index}.x0`)} className="w-full p-1 bg-transparent border-b border-border-color outline-none text-sm" />
                                                 </div>
                                                 <div>
-                                                    <label className="text-[10px] font-bold text-secondary uppercase">Master Min (x1)</label>
+                                                    <label className="text-[10px] font-bold text-secondary uppercase">Sensor Min (x1)</label>
                                                     <input type="number"
                                                         disabled={isCalMin} step="0.0001" {...register(`airgauge_list.${index}.x1`)} className="w-full p-1 bg-transparent border-b border-border-color outline-none text-sm" />
                                                 </div>
