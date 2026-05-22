@@ -438,12 +438,12 @@ function AirGaugeSettings() {
                                                 ))} */}
 
                                                 <div>
-                                                    <label className="text-[10px] font-bold text-secondary uppercase">Master Max(y0)</label>
+                                                    <label className="text-[10px] font-bold text-secondary uppercase">Master Max (y0)</label>
                                                     <input type="number"
                                                         disabled={isCalMax} step="0.0001" {...register(`airgauge_list.${index}.y0`)} className="w-full p-1 bg-transparent border-b border-border-color outline-none text-sm" />
                                                 </div>
                                                 <div>
-                                                    <label className="text-[10px] font-bold text-secondary uppercase">Master Min(y1)</label>
+                                                    <label className="text-[10px] font-bold text-secondary uppercase">Master Min (y1)</label>
                                                     <input type="number"
                                                         disabled={isCalMin} step="0.0001" {...register(`airgauge_list.${index}.y1`)} className="w-full p-1 bg-transparent border-b border-border-color outline-none text-sm" />
                                                 </div>
@@ -451,12 +451,16 @@ function AirGaugeSettings() {
                                             </div>
                                             {/* section x value   */}
                                             <div>
-                                                {['x0', 'x1'].map((val) => (
-                                                    <div key={val}>
-                                                        <label className="text-[10px] font-bold text-secondary uppercase">sensor max({val})</label>
-                                                        <input type="number" disabled step="0.0001" {...register(`airgauge_list.${index}.${val}`)} className="w-full p-1 bg-transparent border-b border-border-color outline-none text-sm" />
-                                                    </div>
-                                                ))}
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-secondary uppercase">Master Max (x0)</label>
+                                                    <input type="number"
+                                                        disabled={isCalMax} step="0.0001" {...register(`airgauge_list.${index}.x0`)} className="w-full p-1 bg-transparent border-b border-border-color outline-none text-sm" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-secondary uppercase">Master Min (x1)</label>
+                                                    <input type="number"
+                                                        disabled={isCalMin} step="0.0001" {...register(`airgauge_list.${index}.x1`)} className="w-full p-1 bg-transparent border-b border-border-color outline-none text-sm" />
+                                                </div>
                                             </div>
                                             <div className='flex flex-row gap-2 col-span-3  lg:col-span-2 h-full'>
                                                 {/* section set max min*/}
