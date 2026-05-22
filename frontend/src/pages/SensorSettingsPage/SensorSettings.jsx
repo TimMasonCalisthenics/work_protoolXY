@@ -3,7 +3,7 @@ import MitutoyoSettings from './sensors/MitutoyoSettings'
 import AirgaugeSettings from './sensors/AirgaugeSettings';
 
 function SensorSettings() {
-    const [activeTab, setActiveTab] = useState('mitutoyo');
+    const [activeTab, setActiveTab] = useState('airgauge');
 
     const listSensor = [
         {
