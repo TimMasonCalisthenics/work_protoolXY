@@ -71,7 +71,7 @@ function AirGaugeSettings() {
 
     const handleStartPolling = () => {
         if (intervalRef.current) return;
-        const pollInterval = 500;
+        const pollInterval = 100;
         setIsPolling(true);
         intervalRef.current = setInterval(fetchRealtimeData, pollInterval);
         console.log("Polling started...");
@@ -462,14 +462,6 @@ function AirGaugeSettings() {
                                             </div>
                                             {/* section y value   */}
                                             <div>
-                                                {/* {['y0', 'y1'].map((val) => (
-                                                    <div key={val}>
-                                                        <label className="text-[10px] font-bold text-secondary uppercase">{val}</label>
-                                                        <input type="number"
-                                                            disabled={isCalMax} step="0.0001" {...register(`airgauge_list.${index}.${val}`)} className="w-full p-1 bg-transparent border-b border-border-color outline-none text-sm" />
-                                                    </div>
-                                                ))} */}
-
                                                 <div>
                                                     <label className="text-[10px] font-bold text-secondary uppercase">Master Max (y0)</label>
                                                     <input type="number"
