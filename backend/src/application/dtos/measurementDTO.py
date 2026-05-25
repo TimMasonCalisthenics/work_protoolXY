@@ -8,8 +8,8 @@ class MeasurementPointCreate(BaseModel):
 
 class MeasurementBase(BaseModel):
     product_id: int
-    serial_a: str = Field(..., min_length=1, max_length=100)
-    serial_b: str = Field(..., min_length=1, max_length=100)
+    serial_a: str | None = Field(..., min_length=0, max_length=100)
+    serial_b: str | None= Field(..., min_length=0, max_length=100)
     details: List[MeasurementPointCreate] = Field(..., min_length=1)
     final_result: str = Field(..., min_length=1, max_length=100)
 
@@ -42,8 +42,8 @@ class MeasurementResponse(MeasurementBase):
 
 class MeasurementDraftBase(BaseModel):
     product_id: int
-    serial_a: str = Field(..., min_length=1, max_length=100)
-    serial_b: str = Field(..., min_length=1, max_length=100)
+    serial_a: str = Field(..., min_length=0, max_length=100)
+    serial_b: str = Field(..., min_length=0, max_length=100)
     stage: Optional[str] = Field(None, min_length=1, max_length=100)
     status: Optional[str] = Field(None, min_length=1, max_length=100)
 class MeasurementDraftCreate(MeasurementDraftBase):

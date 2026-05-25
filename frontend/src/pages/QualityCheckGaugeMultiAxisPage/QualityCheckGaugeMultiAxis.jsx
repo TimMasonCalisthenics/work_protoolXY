@@ -1,26 +1,38 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useStep } from '@context/MeasurementContext';
 import { showSuccess, showError, showWarning } from '@utils/toast';
 import ComfirmModal from '@components/ComfirmModal';
 import { IMAGE_BASE_URL } from '@services/interceptor';
 
 import { clearTmp } from '@services/sensorService';
-import { saveMeasurement, cancelMeasurementDraft, saveMeasurementWithoutCheck } from '@services/measurementService';
+import {
+  saveMeasurement,
+  cancelMeasurementDraft,
+  createMeasurementDraft,
+  saveMeasurementWithoutCheck
+} from '@services/measurementService';
 import { start_readSensor, stop_readSensor } from '@services/airgaugeSensor/airgaugeService';
 import { getMeasurementsDraft, clearNgAndRawValueMeasurementsDraft } from '@services/measurements_draft_service';
 import { API_AIRGAUGE_URL } from '@services/interceptor';
+import { sendQualitySignal } from '@/services/serialSensor/serialSensor';
 
 function QualityCheckGaugeMultiAxis() {
-  const { zeroStep, product, draftMeasurement, goStep } = useStep();
+  const { zeroStep, product, goStep, refreshDraft, draftMeasurement, setDraftMeasurement } = useStep();
   const [measurementData, setMeasurementData] = useState([]);
   const [showCancelDraft, setShowCancelDraft] = useState(false);
   const [modalConfig, setModalConfig] = useState(null);
+  const [isCreatingDraft, setIsCreatingDraft] = useState(false);
+  const precision = 3;
+  const shortCutKey = "Space";
 
-  // --- 1. ระบบเวลา & คลังความจำ Local Storage ---
+  // --- 📌 ระบบสวิตช์ควบคุม Flow หน้าจอ (เปิด-ปิด Polling และล็อกปุ่ม) ---
+  const [isPollingActive, setIsPollingActive] = useState(false);
+  const [forceShowStartButton, setForceShowStartButton] = useState(false);
+
+  // --- ⏱️ 1. ระบบเวลา & คลังความจำ Local Storage ---
   const [timeoutX, setTimeoutX] = useState(() => Number(localStorage.getItem('timer_axis_x')) || 5);
   const [timeoutY, setTimeoutY] = useState(() => Number(localStorage.getItem('timer_axis_y')) || 5);
 
-  // --- 2. State สำหรับเก็บเวลาคงเหลือเพื่อโชว์บนหน้าจอ ---
   const [timeLeftX, setTimeLeftX] = useState(0);
   const [timeLeftY, setTimeLeftY] = useState(0);
 
@@ -28,59 +40,36 @@ function QualityCheckGaugeMultiAxis() {
   const hasLoggedTimeoutY = useRef(false);
   const intervalIdX = useRef(null);
   const intervalIdY = useRef(null);
-
   const hasAutoShowed = useRef(false);
-  const hasLoggedX = useRef(false);
-  const hasLoggedY = useRef(false);
-  const precision = 4;
-
-  // --- 3. การจัดกลุ่มข้อมูลให้ได้กล่องใหญ่ โดยจับคู่ผ่าน value_key และ sensor_type ---
-  const uniqueSensorGroups = useMemo(() => {
-    if (!measurementData || measurementData.length === 0) return [];
-
-    const groups = {};
-
-    measurementData.forEach(item => {
-      const groupKey = item.value_key;
-      if (!groupKey) return; 
-
-      if (!groups[groupKey]) {
-        groups[groupKey] = {
-          value_key: groupKey,
-          point_name: item.point_name, 
-          pointNamesSet: new Set([item.point_name]),
-          point_image_url: item.point_image_url || null,
-          dataX: item.sensor_type === 'air_gauge_x' ? item : null,
-          dataY: item.sensor_type === 'air_gauge_y' ? item : null,
-        };
-      } else {
-        groups[groupKey].pointNamesSet.add(item.point_name);
-
-        if (item.point_image_url && !groups[groupKey].point_image_url) {
-          groups[groupKey].point_image_url = item.point_image_url;
-        }
-        if (item.sensor_type === 'air_gauge_x') groups[groupKey].dataX = item;
-        if (item.sensor_type === 'air_gauge_y') groups[groupKey].dataY = item;
-      }
-    });
-
-    return Object.values(groups).map(g => {
-      const namesArray = Array.from(g.pointNamesSet);
-      const displayCardName = namesArray.length > 1 ? namesArray.join(' / ') : namesArray[0];
-
-      return {
-        ...g,
-        combined_point_name: displayCardName
-      };
-    });
-  }, [measurementData]);
 
   const closeModal = () => {
     setModalConfig(null);
     hasAutoShowed.current = false;
   };
 
-  // เปิด-ปิด บริการสตรีมมิ่งข้อมูลเซ็นเซอร์
+  // --- 📦 2. จัดกลุ่มข้อมูลตามโครงสร้างเก่า (อิงจาก product.step4) ---
+  const groupedPoints = Object.values(
+    (product.step4 || []).reduce((acc, current) => {
+      const key = current.sensor_value_key || current.value_key;
+      if (!acc[key]) {
+        acc[key] = {
+          sensor_value_key: key,
+          display_name: current.point_name.replace(/[XY]$/, ''),
+          rawX: null,
+          rawY: null
+        };
+      }
+
+      if (current.sensor_type === 'air_gauge_x') {
+        acc[key].rawX = current;
+      } else if (current.sensor_type === 'air_gauge_y') {
+        acc[key].rawY = current;
+      }
+      return acc;
+    }, {})
+  );
+
+  // --- 📡 3. บริการสตรีมมิ่งเซ็นเซอร์ตอน Mount/Unmount ---
   useEffect(() => {
     let isMounted = true;
     const startService = async () => {
@@ -91,6 +80,7 @@ function QualityCheckGaugeMultiAxis() {
       }
     };
     startService();
+
     return () => {
       isMounted = false;
       const stopService = async () => {
@@ -104,7 +94,7 @@ function QualityCheckGaugeMultiAxis() {
     };
   }, []);
 
-  // ส่งสัญญาณ Beacon ตอนจบแอปหรือปิดหน้าเบราว์เซอร์
+  // Beacon Signal ป้องกันข้อมูลค้างเมื่อปิดบราวเซอร์กะทันหัน
   useEffect(() => {
     const handleBeforeUnload = () => {
       const url = `${API_AIRGAUGE_URL}/airgauge/stop-send`;
@@ -112,27 +102,39 @@ function QualityCheckGaugeMultiAxis() {
       const blob = new Blob([data], { type: 'application/json' });
       navigator.sendBeacon(url, blob);
     };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
 
-  const checkIsValuePassed = (item, val) => {
-    if (!item || val === '' || val === null || val === undefined || isNaN(val)) return false;
-    const num = parseFloat(val);
-    return (num >= item.min_value && num <= item.max_value);
-  };
+  // --- 🕒 4. Polling ดึงข้อมูลเรียลไทม์จาก Draft หลังบ้าน ---
+  useEffect(() => {
+    // ต้องมี id ดราฟต์ และสวิตช์ Polling ต้องถูกเปิดเท่านั้น ถึงจะดึงค่าแบบเรียลไทม์
+    if (!draftMeasurement?.id || !isPollingActive) {
+      return;
+    }
 
-  const isAxisFilledAll = (targetSensorType) => {
-    if (!measurementData || measurementData.length === 0) return false;
-    const filtered = measurementData.filter(item => item.sensor_type === targetSensorType);
-    if (filtered.length === 0) return false;
-    return filtered.every(item => {
-      const val = item?.final_value;
-      return val !== '' && val !== null && val !== undefined && !isNaN(val);
-    });
+    const fetchData = async () => {
+      try {
+        const response = await getMeasurementsDraft();
+        const datas = response.data;
+        if (datas && Array.isArray(datas)) {
+          setMeasurementData(datas);
+        }
+      } catch (error) {
+        console.error("Error fetching measurements draft", error);
+      }
+    };
+
+    fetchData();
+    const intervalId = setInterval(fetchData, 500);
+    return () => clearInterval(intervalId);
+  }, [draftMeasurement?.id, isPollingActive]);
+
+  // --- 🛠️ 5. ฟังก์ชันตรวจสอบเงื่อนไขทาง Logic สำหรับระบบ Timer ---
+  const checkIsValuePassed = (config, val) => {
+    if (!config || val === '' || val === null || val === undefined || isNaN(val)) return false;
+    const num = parseFloat(val);
+    return (num >= config.min_value && num <= config.max_value);
   };
 
   const isAxisStarted = (targetSensorType) => {
@@ -148,7 +150,11 @@ function QualityCheckGaugeMultiAxis() {
     if (!measurementData || measurementData.length === 0) return false;
     return measurementData.some(item => {
       if (item.sensor_type !== targetSensorType) return false;
-      return item?.final_value !== null && !checkIsValuePassed(item, item?.final_value);
+
+      const matchedGroup = groupedPoints.find(g => g.sensor_value_key === item.value_key || g.sensor_value_key === item.sensor_value_key);
+      const config = targetSensorType === 'air_gauge_x' ? matchedGroup?.rawX : matchedGroup?.rawY;
+
+      return item?.final_value !== null && !checkIsValuePassed(config, item?.final_value);
     });
   };
 
@@ -158,12 +164,14 @@ function QualityCheckGaugeMultiAxis() {
     showSuccess("Saved Timer Settings Successfully");
   };
 
-  // --- 4. ⏱️ ส่วนควบคุม Logic Countdown และ Auto-Save อิงตามเวลาถอยหลังล้วน ๆ ---
+  // --- ⏱️ 6. Logic ควบคุม Countdown แยกแกน และ Auto-Save ---
   useEffect(() => {
+    if (!draftMeasurement?.id || forceShowStartButton) return;
+
     const startedX = isAxisStarted('air_gauge_x');
     const startedY = isAxisStarted('air_gauge_y');
 
-    // === 🔴 Countdown แกน X ===
+    // === แกน X ===
     if (startedX) {
       if (!intervalIdX.current && !hasLoggedTimeoutX.current) {
         setTimeLeftX(timeoutX);
@@ -172,8 +180,6 @@ function QualityCheckGaugeMultiAxis() {
             if (prev <= 1) {
               clearInterval(intervalIdX.current);
               intervalIdX.current = null;
-              
-              // เมื่อเวลาหมดสนิท -> สั่งเซฟข้อมูลล็อกค่าแกน X ทันที
               if (!hasLoggedTimeoutX.current) {
                 saveMeasurementWithoutCheck("air_gauge_x");
                 hasLoggedTimeoutX.current = true;
@@ -193,7 +199,7 @@ function QualityCheckGaugeMultiAxis() {
       hasLoggedTimeoutX.current = false;
     }
 
-    // === 🟠 Countdown แกน Y ===
+    // === แกน Y ===
     if (startedY) {
       if (!intervalIdY.current && !hasLoggedTimeoutY.current) {
         setTimeLeftY(timeoutY);
@@ -202,13 +208,10 @@ function QualityCheckGaugeMultiAxis() {
             if (prev <= 1) {
               clearInterval(intervalIdY.current);
               intervalIdY.current = null;
-              
-              // เมื่อเวลาหมดสนิท -> เช็คสภาพชิ้นงานของแกน Y แล้วส่งบันทึกปิดบิลชิ้นงาน (handleSave)
               if (!hasLoggedTimeoutY.current) {
                 const isX_NG = isAxisNG('air_gauge_x');
                 const isY_NG = isAxisNG('air_gauge_y');
-                const overallPassed = !isX_NG && !isY_NG;
-                handleSave(overallPassed);
+                handleSave(!isX_NG && !isY_NG);
                 hasLoggedTimeoutY.current = true;
               }
               return 0;
@@ -225,10 +228,8 @@ function QualityCheckGaugeMultiAxis() {
       setTimeLeftY(0);
       hasLoggedTimeoutY.current = false;
     }
+  }, [measurementData, timeoutX, timeoutY, draftMeasurement?.id, forceShowStartButton]);
 
-  }, [measurementData, timeoutX, timeoutY]);
-
-  // คืนค่าหน่วยความจำกรณีปิดคอมโพเนนต์ป้องกันปัญหาเอฟเฟกต์ค้าง (Memory Leak)
   useEffect(() => {
     return () => {
       if (intervalIdX.current) clearInterval(intervalIdX.current);
@@ -236,28 +237,56 @@ function QualityCheckGaugeMultiAxis() {
     };
   }, []);
 
-  // วงจร Fetch ดึงสตรีมข้อมูลดราฟต์เรียลไทม์ (ป้องกันการสร้าง Loop ซ้อน)
-  useEffect(() => {
-    let isDataMounted = true;
-    const fetchData = async () => {
+  // --- 🎬 7. Action Handlers ---
+  const handleCreateDraft = async () => {
+    if (isCreatingDraft) return;
+    try {
+      setIsCreatingDraft(true);
+
+      // [จุดล้างค่าชิ้นเก่า] เคลียร์ข้อมูลชิ้นงานเก่าทั้งหลังบ้านและหน้าจอทันทีก่อนขึ้นชิ้นใหม่
       try {
-        const response = await getMeasurementsDraft();
-        const datas = response.data;
-        if (isDataMounted && datas && Array.isArray(datas)) {
-          setMeasurementData(datas);
-        }
-      } catch (error) {
-        console.error("Error fetching measurements draft", error);
+        await clearNgAndRawValueMeasurementsDraft();
+        setMeasurementData([]);
+      } catch (clearErr) {
+        console.error("Error clearing old measurements", clearErr);
+      }
+
+      const response = await createMeasurementDraft("", "", product.step1.id, 'draft');
+      if (response && response.data) {
+        setDraftMeasurement(response.data);
+        setForceShowStartButton(false); // เอาสวิตช์ Force ออกเพื่อรันโหมดปกติ
+        setIsPollingActive(true);        // เปิดช่องส่งข้อมูล Polling เรียลไทม์
+      }
+      await saveMeasurement("qrcode");
+      showSuccess("Measurement Draft Created. Ready to receive values.");
+      hasAutoShowed.current = false;
+
+      if (typeof refreshDraft === 'function') refreshDraft();
+    } catch (error) {
+      showError("Failed to start measurement");
+    } finally {
+      setIsCreatingDraft(false);
+    }
+  };
+  // --- ⌨️ 8. ระบบปุ่มลัด (Shortcut Keys) ---
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      // ตรวจสอบเงื่อนไข: ต้องเป็นจังหวะที่ปุ่ม Start Measurement แสดงขึ้นมา 
+      // และต้องไม่เอื้อให้กดซ้ำซ้อนขณะกำลังบันทึก/สร้างดราฟต์อยู่ (isCreatingDraft)
+      const canStart = !draftMeasurement?.id || forceShowStartButton;
+
+      if (event.code === shortCutKey && canStart && !isCreatingDraft) {
+        // ตรวจสอบเพื่อป้องกันหน้าจอเลื่อน (Scroll) ลงด้านล่างเมื่อกด Spacebar
+        event.preventDefault();
+        handleCreateDraft();
       }
     };
 
-    fetchData();
-    const intervalId = setInterval(fetchData, 500);
+    window.addEventListener('keydown', handleKeyDown);
     return () => {
-      isDataMounted = false;
-      clearInterval(intervalId);
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [draftMeasurement?.id]);
+  }, [draftMeasurement?.id, forceShowStartButton, isCreatingDraft, product?.step1?.id]);
 
   const handleClearTmp = async () => {
     try {
@@ -268,28 +297,12 @@ function QualityCheckGaugeMultiAxis() {
     }
   };
 
-  const handleSave = async (passed) => {
-    try {
-      await saveMeasurement("air_gauge_y");
-      if (passed) {
-        showSuccess("Air Gauge measurement is OK and saved successfully");
-      } else {
-        showWarning("Air Gauge measurement is NG and saved successfully");
-      }
-      goStep(-1);
-    } catch (error) {
-      showError("Error saving air gauge measurement");
-    }
-  };
-
   const handleReset = async () => {
     try {
       await clearNgAndRawValueMeasurementsDraft();
+      setMeasurementData([]);
       showSuccess("Measurement reset successfully");
       hasAutoShowed.current = false;
-      hasLoggedX.current = false;
-      hasLoggedY.current = false;
-
       hasLoggedTimeoutX.current = false;
       hasLoggedTimeoutY.current = false;
       setTimeLeftX(0);
@@ -299,23 +312,62 @@ function QualityCheckGaugeMultiAxis() {
     }
   };
 
-  const handleCancelDraft = async () => {
+  const handleSave = async (passed) => {
     try {
-      await cancelMeasurementDraft();
-      showSuccess("Measurement is canceled");
-      zeroStep();
+      // [สับสวิตช์ปิดทันที] บล็อกการแอบ Polling รอบสุดท้ายวิ่งมาล้างค่าหน้าจอ
+      setIsPollingActive(false);
+      try
+      {
+          sendQualitySignal(passed);
+      }catch{
+
+      }
+      await saveMeasurement("air_gauge_y");
+      if (passed) {
+        showSuccess("Air Gauge measurement passed and saved successfully");
+      } else {
+        showWarning("Air Gauge measurement failed and saved successfully");
+      }
+      
+      setDraftMeasurement(null);
+      setForceShowStartButton(true);
 
       hasAutoShowed.current = false;
-      hasLoggedX.current = false;
-      hasLoggedY.current = false;
       hasLoggedTimeoutX.current = false;
       hasLoggedTimeoutY.current = false;
       setTimeLeftX(0);
       setTimeLeftY(0);
+
+    } catch (error) {
+      showError("Error saving air gauge measurement");
+    }
+  };
+
+  const handleCancelDraft = async () => {
+    try {
+      setIsPollingActive(false);
+      await cancelMeasurementDraft();
+      setDraftMeasurement(null);
+      setForceShowStartButton(false);
+      setMeasurementData([]);
+      showSuccess("Measurement is canceled");
+      hasAutoShowed.current = false;
+      hasLoggedTimeoutX.current = false;
+      hasLoggedTimeoutY.current = false;
+      setTimeLeftX(0);
+      setTimeLeftY(0);
+      zeroStep();
     } catch (error) {
       showError("Error canceling draft measurement");
     }
     setShowCancelDraft(false);
+  };
+
+  const getBoxStatusClass = (hasValue, isPassed) => {
+    if (!hasValue) return "bg-black/10 border-dashed border-yellow-500/30 text-gray-500";
+    return isPassed
+      ? "bg-green-500/5 border-solid border-green-500/20 text-green-400"
+      : "bg-red-500/5 border-solid border-red-500/20 text-red-400";
   };
 
   const displayValue = (rawValue) => (rawValue !== undefined && rawValue !== null && rawValue !== "")
@@ -323,211 +375,224 @@ function QualityCheckGaugeMultiAxis() {
     : "---";
 
   return (
-    <div className="w-full space-y-3">
+    <div className="min-h-screen bg-page p-6">
+      <div className="max-w-6xl mx-auto space-y-6">
 
-      {/* Top Header Bar */}
-      <div className="flex justify-between items-center bg-card p-3 rounded-xl border border-white/10 shadow-sm">
-        <div className="flex items-center gap-2">
-          <h1 className="text-sm font-bold text-primary uppercase tracking-wider">
-            Air Gauge Multi-Axis Measurement
-          </h1>
-          {draftMeasurement?.serial_a && (
-            <span className="text-xs px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-md font-mono">
-              SN: {draftMeasurement.serial_a}
-            </span>
-          )}
-        </div>
-
-        {/* ระบบตั้งเวลาจับความเคลื่อนไหวแยกแกน */}
-        <div className="flex items-center gap-4 bg-white/5 px-3 py-1 rounded-lg border border-white/5">
-          <div className="flex items-center gap-2 text-xs border-r border-white/10 pr-2">
-            <span className="text-gray-400">X:</span>
-            <input
-              type="number"
-              value={timeoutX}
-              onChange={(e) => setTimeoutX(Math.max(0, parseInt(e.target.value) || 0))}
-              className="w-10 bg-black/40 border border-white/10 rounded px-1 text-center text-green-400 font-mono focus:outline-none"
-            />
-            {timeLeftX > 0 ? (
-              <span className="px-1.5 py-0.2 bg-red-500/20 text-red-400 rounded font-mono font-bold animate-pulse">Remaining: {timeLeftX}s</span>
-            ) : (
-              <span className="text-gray-500 text-[11px] font-mono">X Ready</span>
-            )}
+        {/* Top Management Bar */}
+        <div className="flex justify-between items-center bg-card p-4 rounded-xl border border-white/10 shadow-md">
+          <div className="flex flex-col">
+            <h1 className="text-xl font-bold text-primary uppercase tracking-wider">
+              Quality Check (Multi-Axis)
+            </h1>
+            <div className="flex items-center gap-3 mt-0.5">
+              <p className="text-[11px] text-gray-400">
+                Status: {(draftMeasurement?.id && !forceShowStartButton) ? <span className="text-green-400 font-bold">MEASURING...</span> : <span className="text-yellow-500 font-bold">IDLE</span>}
+              </p>
+              {draftMeasurement?.serial_a && !forceShowStartButton && (
+                <span className="text-xs px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-md font-mono">
+                  SN: {draftMeasurement.serial_a}
+                </span>
+              )}
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-gray-400">Y:</span>
-            <input
-              type="number"
-              value={timeoutY}
-              onChange={(e) => setTimeoutY(Math.max(0, parseInt(e.target.value) || 0))}
-              className="w-10 bg-black/40 border border-white/10 rounded px-1 text-center text-green-400 font-mono focus:outline-none"
-            />
-            {timeLeftY > 0 ? (
-              <span className="px-1.5 py-0.2 bg-orange-500/20 text-orange-400 rounded font-mono font-bold animate-pulse">Remaining: {timeLeftY}s</span>
-            ) : (
-              <span className="text-gray-500 text-[11px] font-mono">Y Ready</span>
-            )}
-          </div>
-
-          <button
-            onClick={saveTimerSettings}
-            className="bg-primary/20 text-primary border border-primary/30 px-2 py-0.5 rounded text-[11px] font-bold hover:bg-primary/40 transition-colors"
-          >
-            Save Timer
-          </button>
-        </div>
-
-        <div className="flex gap-2">
-
-
-          <button
-            onClick={() => {
-              setModalConfig({
-                title: "Clear Tmp",
-                message: "Do you want to clear tmp?",
-                onClose: closeModal,
-                onConfirmOk: handleClearTmp,
-                onConfirmNo: closeModal,
-                variant: "warning",
-                buttonNo: "Cancel",
-                buttonOK: "Confirm"
-              });
-            }}
-            className="flex items-center gap-1 bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-yellow-500/20 transition-colors"
-          >
-            Clear Tmp
-          </button>
-
-          <button
-            onClick={() => setShowCancelDraft(true)}
-            className="flex items-center gap-1 bg-red-500/10 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-500/20 transition-colors"
-          >
-            Cancel Draft
-          </button>
-        </div>
-      </div>
-
-      {/* Main Dashboard Grid */}
-      <div className="grid grid-cols-2 gap-3">
-        {uniqueSensorGroups.map((group, index) => {
-          const dataX = group.dataX;
-          const dataY = group.dataY;
-
-          const passedX = dataX ? checkIsValuePassed(dataX, dataX?.final_value) : true;
-          const passedY = dataY ? checkIsValuePassed(dataY, dataY?.final_value) : true;
-          const isPointPassed = passedX && passedY;
-
-          const hasValueX = dataX?.final_value !== undefined && dataX?.final_value !== null && dataX?.final_value !== "";
-          const hasValueY = dataY?.final_value !== undefined && dataY?.final_value !== null && dataY?.final_value !== "";
-
-          let boxClassX = "bg-black/10 border-dashed border-yellow-500/30";
-          if (!dataX) {
-            boxClassX = "bg-gray-500/5 border-solid border-white/5 opacity-30 select-none";
-          } else if (hasValueX) {
-            boxClassX = passedX ? "bg-green-500/5 border-solid border-green-500/20" : "bg-red-500/5 border-solid border-red-500/20";
-          }
-
-          let boxClassY = "bg-black/10 border-dashed border-yellow-500/30";
-          if (!dataY) {
-            boxClassY = "bg-gray-500/5 border-solid border-white/5 opacity-30 select-none";
-          } else if (hasValueY) {
-            boxClassY = passedY ? "bg-green-500/5 border-solid border-green-500/20" : "bg-red-500/5 border-solid border-red-500/20";
-          }
-
-          return (
-            <div key={index} className="bg-card p-3 rounded-xl border border-white/5 space-y-3 shadow-sm flex flex-col justify-between">
-
-              {/* Point Header */}
-              <div className="flex justify-between items-center border-b border-white/5 pb-1">
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold text-accent uppercase tracking-wider">
-                    {group.combined_point_name}
-                  </span>
-                  <span className="text-[9px] text-gray-500 font-mono">
-                    CH: {group.value_key}
-                  </span>
-                </div>
-
-                {!hasValueX && !hasValueY ? (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 animate-pulse">
-                    READY
-                  </span>
+          {/* ⏱️ ระบบตั้งเวลาความหน่วงแบบ Realtime แยกแกน */}
+          {draftMeasurement?.id && !forceShowStartButton && (
+            <div className="flex items-center gap-4 bg-white/5 px-3 py-1 rounded-lg border border-white/5">
+              <div className="flex items-center gap-2 text-xs border-r border-white/10 pr-2">
+                <span className="text-gray-400">X:</span>
+                <input
+                  type="number"
+                  value={timeoutX}
+                  onChange={(e) => setTimeoutX(Math.max(0, parseInt(e.target.value) || 0))}
+                  className="w-10 bg-black/40 border border-white/10 rounded px-1 text-center text-green-400 font-mono focus:outline-none"
+                />
+                {timeLeftX > 0 ? (
+                  <span className="px-1.5 py-0.2 bg-red-500/20 text-red-400 rounded font-mono font-bold animate-pulse">Remaining: {timeLeftX}s</span>
                 ) : (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${isPointPassed ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                    {isPointPassed ? "PASS" : "NG"}
-                  </span>
+                  <span className="text-gray-500 text-[11px] font-mono">X Ready</span>
                 )}
               </div>
 
-              {/* Image */}
-              {group.point_image_url && (
-                <div className="aspect-video rounded-lg overflow-hidden bg-black/10 border border-white/5 flex items-center justify-center">
-                  <img
-                    src={IMAGE_BASE_URL + group.point_image_url}
-                    alt={group.combined_point_name}
-                    className="w-full h-full object-contain p-2"
-                  />
-                </div>
-              )}
-
-              {/* Inside Value */}
-              <div className="grid grid-cols-2 gap-2">
-                {/* AXIS X */}
-                <div className={`p-2 rounded-lg border text-center transition-all ${boxClassX}`}>
-                  <span className="text-[9px] text-gray-400 font-medium block uppercase tracking-wider">Axis X</span>
-                  <span className={`text-2xl font-mono font-black block ${hasValueX ? (passedX ? 'text-green-400' : 'text-red-400') : 'text-gray-600'}`}>
-                    {dataX ? displayValue(dataX.final_value) : "---"}
-                  </span>
-                  <span className="text-[9px] text-gray-500 block mt-0.5">
-                    Range: {dataX ? `${dataX.min_value} - ${dataX.max_value}` : '---'}
-                  </span>
-                </div>
-
-                {/* AXIS Y */}
-                <div className={`p-2 rounded-lg border text-center transition-all ${boxClassY}`}>
-                  <span className="text-[9px] text-gray-400 font-medium block uppercase tracking-wider">Axis Y</span>
-                  <span className={`text-2xl font-mono font-black block ${hasValueY ? (passedY ? 'text-green-400' : 'text-red-400') : 'text-gray-600'}`}>
-                    {dataY ? displayValue(dataY.final_value) : "---"}
-                  </span>
-                  <span className="text-[9px] text-gray-500 block mt-0.5">
-                    Range: {dataY ? `${dataY.min_value} - ${dataY.max_value}` : '---'}
-                  </span>
-                </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-gray-400">Y:</span>
+                <input
+                  type="number"
+                  value={timeoutY}
+                  onChange={(e) => setTimeoutY(Math.max(0, parseInt(e.target.value) || 0))}
+                  className="w-10 bg-black/40 border border-white/10 rounded px-1 text-center text-green-400 font-mono focus:outline-none"
+                />
+                {timeLeftY > 0 ? (
+                  <span className="px-1.5 py-0.2 bg-orange-500/20 text-orange-400 rounded font-mono font-bold animate-pulse">Remaining: {timeLeftY}s</span>
+                ) : (
+                  <span className="text-gray-500 text-[11px] font-mono">Y Ready</span>
+                )}
               </div>
 
+              <button
+                onClick={saveTimerSettings}
+                className="bg-primary/20 text-primary border border-primary/30 px-2 py-0.5 rounded text-[11px] font-bold hover:bg-primary/40 transition-colors"
+              >
+                Save Timer
+              </button>
             </div>
-          );
-        })}
+          )}
+
+          {/* ปุ่มคำสั่งหลักด้านขวา */}
+          <div className="flex gap-2">
+            {(!draftMeasurement?.id || forceShowStartButton) ? (
+              <button
+                onClick={handleCreateDraft}
+                disabled={isCreatingDraft}
+                className="px-6 py-2 bg-green-500 text-black text-xs font-black rounded-lg hover:bg-green-400 active:scale-95 transition-all shadow-lg uppercase tracking-wider"
+              >
+                {isCreatingDraft ? 'Starting...' : 'Start Measurement'}
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={handleReset}
+                  className="px-5 py-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-bold rounded-lg hover:bg-blue-500/20 transition-colors"
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={() => setModalConfig({
+                    title: "Clear Tmp",
+                    message: "Do you want to clear tmp?",
+                    onClose: closeModal,
+                    onConfirmOk: handleClearTmp,
+                    onConfirmNo: closeModal,
+                    variant: "warning",
+                    buttonNo: "Cancel",
+                    buttonOK: "Confirm"
+                  })}
+                  className="px-5 py-2 bg-yellow-400 text-black text-xs font-bold rounded-lg hover:bg-yellow-500 transition-colors"
+                >
+                  Clear Tmp
+                </button>
+                <button
+                  onClick={() => setShowCancelDraft(true)}
+                  className="px-5 py-2 bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-bold rounded-lg hover:bg-red-500/20 transition-colors"
+                >
+                  Cancel Draft
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* 🛠️ Dashboard Grid */}
+        <div className="grid grid-cols-2 gap-4">
+          {groupedPoints.map((group, index) => {
+            const streamX = measurementData.find(item =>
+              (item.value_key === group.sensor_value_key || item.sensor_value_key === group.sensor_value_key) &&
+              item.sensor_type === 'air_gauge_x'
+            );
+
+            const streamY = measurementData.find(item =>
+              (item.value_key === group.sensor_value_key || item.sensor_value_key === group.sensor_value_key) &&
+              item.sensor_type === 'air_gauge_y'
+            );
+
+            const hasValueX = streamX?.final_value !== undefined && streamX?.final_value !== null && streamX?.final_value !== "";
+            const hasValueY = streamY?.final_value !== undefined && streamY?.final_value !== null && streamY?.final_value !== "";
+
+            const passedX = hasValueX ? checkIsValuePassed(group.rawX, streamX.final_value) : true;
+            const passedY = hasValueY ? checkIsValuePassed(group.rawY, streamY.final_value) : true;
+            const isGroupPassed = passedX && passedY;
+
+            const pointImage = group.rawX?.point_image_url || group.rawY?.point_image_url;
+
+            return (
+              <div key={index} className="bg-card p-2.5 rounded-lg border border-white/5 space-y-2 shadow-sm flex flex-col justify-between text-xs">
+                <div className="flex justify-between items-center border-b border-white/5 pb-1.5">
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-bold text-accent uppercase tracking-wider truncate">
+                      {group.display_name}
+                    </span>
+                    <span className="text-[9px] text-gray-500 font-mono truncate">
+                      Key: {group.sensor_value_key}
+                    </span>
+                  </div>
+
+                  {!hasValueX && !hasValueY ? (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 shrink-0">
+                      WAITING
+                    </span>
+                  ) : (
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase shrink-0 ${isGroupPassed ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                      {isGroupPassed ? "PASS" : "NG"}
+                    </span>
+                  )}
+                </div>
+
+                {pointImage && (
+                  <div className="h-24 rounded-md overflow-hidden bg-black/10 border border-white/5 flex items-center justify-center">
+                    <img
+                      src={IMAGE_BASE_URL + pointImage}
+                      alt={group.display_name}
+                      className="w-full h-full object-contain p-1"
+                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2">
+                  {/* กล่องแสดงผลแกน X */}
+                  <div className={`p-1.5 rounded-md border text-center transition-all ${getBoxStatusClass(hasValueX, passedX)}`}>
+                    <span className="text-[9px] text-gray-400 font-medium block uppercase tracking-wider">Axis X</span>
+                    <span className="text-xl font-mono font-black block my-0.5">
+                      {hasValueX ? displayValue(streamX.final_value) : "---"}
+                    </span>
+                    <span className="text-[9px] text-gray-500 block truncate">
+                      {group.rawX ? `${group.rawX.min_value}-${group.rawX.max_value}` : 'N/A'}
+                    </span>
+                  </div>
+
+                  {/* กล่องแสดงผลแกน Y */}
+                  <div className={`p-1.5 rounded-md border text-center transition-all ${getBoxStatusClass(hasValueY, passedY)}`}>
+                    <span className="text-[9px] text-gray-400 font-medium block uppercase tracking-wider">Axis Y</span>
+                    <span className="text-xl font-mono font-black block my-0.5">
+                      {hasValueY ? displayValue(streamY.final_value) : "---"}
+                    </span>
+                    <span className="text-[9px] text-gray-500 block truncate">
+                      {group.rawY ? `${group.rawY.min_value}-${group.rawY.max_value}` : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Modals Container */}
+        {modalConfig && (
+          <ComfirmModal
+            title={modalConfig.title}
+            message={modalConfig.message}
+            variant={modalConfig.variant}
+            onClose={closeModal}
+            buttonNo={modalConfig.buttonNo}
+            buttonOK={modalConfig.buttonOK}
+            handleConfirmOK={modalConfig.onConfirmOk}
+            handleConfirmNo={modalConfig.onConfirmNo}
+          />
+        )}
+
+        {showCancelDraft && (
+          <ComfirmModal
+            title="Cancel Draft"
+            message="Do you want to cancel this measurement draft?"
+            variant="danger"
+            buttonNo="No"
+            buttonOK="Yes"
+            onClose={() => setShowCancelDraft(false)}
+            handleConfirmOK={handleCancelDraft}
+            handleConfirmNo={() => setShowCancelDraft(false)}
+          />
+        )}
+
       </div>
-
-      {/* Confirm Modal */}
-      {modalConfig && (
-        <ComfirmModal
-          title={modalConfig.title}
-          message={modalConfig.message}
-          variant={modalConfig.variant}
-          onClose={closeModal}
-          buttonNo={modalConfig.buttonNo}
-          buttonOK={modalConfig.buttonOK}
-          handleConfirmOK={modalConfig.onConfirmOk}
-          handleConfirmNo={modalConfig.onConfirmNo}
-        />
-      )}
-
-      {showCancelDraft && (
-        <ComfirmModal
-          title="Cancel Draft"
-          message="Do you want to cancel this measurement draft?"
-          variant="danger"
-          buttonNo="No"
-          buttonOK="Yes"
-          onClose={() => setShowCancelDraft(false)}
-          handleConfirmOK={handleCancelDraft}
-          handleConfirmNo={() => setShowCancelDraft(false)}
-        />
-      )}
-
     </div>
   );
 }

@@ -106,8 +106,24 @@ def delete_product(product_id):
         status_code=204
     )
 
-##todo edit this and check
+
 #get active product
+@product_bp.route('/active-product', methods=['GET'])
+@jwt_required()
+@role_required('admin', 'supervisor', 'operator')
+def get_active_product():
+    product = product_service.get_active_product()
+    if product is not None :
+        data = ProductResponse.model_validate(product).model_dump(exclude_none=True)
+    else:
+        data = {}
+
+    return json_response(
+        message="Get active product successfully",
+        status_code=200,
+        data=data
+    )
+
 @product_bp.route('/edit-active-product', methods=['PATCH'])
 @jwt_required()
 @role_required('admin', 'supervisor')

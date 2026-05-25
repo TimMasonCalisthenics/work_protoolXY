@@ -1,6 +1,7 @@
 export const API_BASE_URL = 'http://localhost:5000/api/v1/';
 export const API_AIRGAUGE_URL = 'http://localhost:5001/api/v1/';
 export const API_MITUTOYO_URL = 'http://localhost:5002/api/v1/';
+export const API_SERIAL_URL = 'http://localhost:5003/api/v1/';
 export const IMAGE_BASE_URL = 'http://localhost:5000/api/v1/images';
 
 export const getAuthHeaders = () => {

@@ -13,7 +13,6 @@ export const getActiveProduct = async () => {
         throw new Error(result.message || 'Failed to active product');
     }
     return result;
-
 }
 
 export const setActiveProduct = async (productId) => {

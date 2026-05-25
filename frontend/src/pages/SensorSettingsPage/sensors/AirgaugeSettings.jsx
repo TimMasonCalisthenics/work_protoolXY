@@ -71,7 +71,7 @@ function AirGaugeSettings() {
 
     const handleStartPolling = () => {
         if (intervalRef.current) return;
-        const pollInterval = 500;
+        const pollInterval = 100;
         setIsPolling(true);
         intervalRef.current = setInterval(fetchRealtimeData, pollInterval);
         console.log("Polling started...");
@@ -208,24 +208,6 @@ function AirGaugeSettings() {
 
     };
 
-    const setConfirmModal = (title, message, onConfirm) => {
-        setDetailModal({
-            title: title,
-            message: message,
-            onConfirm: onConfirm,
-            onCancel: () => { setShowConfirmModal(false); setDetailModal(null) }
-        })
-        setShowConfirmModal(true);
-    }
-
-    const handleFormat = (index, value) => {
-        const num = parseFloat(value);
-        if (!isNaN(num)) {
-            const fixedValue = num.toFixed(precision);
-            setValue(`airgauge_list.${index}.x`, fixedValue);
-        }
-    };
-
     const handleSetAllMax = () => {
         fields.forEach((field, index) => {
             const currentX = getValues(`airgauge_list.${index}.x`);
@@ -258,6 +240,23 @@ function AirGaugeSettings() {
         showSuccess("Reset Min for all devices successfully!");
     };
 
+    const setConfirmModal = (title, message, onConfirm) => {
+        setDetailModal({
+            title: title,
+            message: message,
+            onConfirm: onConfirm,
+            onCancel: () => { setShowConfirmModal(false); setDetailModal(null) }
+        })
+        setShowConfirmModal(true);
+    }
+
+    const handleFormat = (index, value) => {
+        const num = parseFloat(value);
+        if (!isNaN(num)) {
+            const fixedValue = num.toFixed(precision);
+            setValue(`airgauge_list.${index}.x`, fixedValue);
+        }
+    };
     // React-hook-form handles onSubmit validation before calling our update function
     const onSubmit = (data) => handleUpdateJsonFromAPI(data);
     return (
@@ -462,14 +461,6 @@ function AirGaugeSettings() {
                                             </div>
                                             {/* section y value   */}
                                             <div>
-                                                {/* {['y0', 'y1'].map((val) => (
-                                                    <div key={val}>
-                                                        <label className="text-[10px] font-bold text-secondary uppercase">{val}</label>
-                                                        <input type="number"
-                                                            disabled={isCalMax} step="0.0001" {...register(`airgauge_list.${index}.${val}`)} className="w-full p-1 bg-transparent border-b border-border-color outline-none text-sm" />
-                                                    </div>
-                                                ))} */}
-
                                                 <div>
                                                     <label className="text-[10px] font-bold text-secondary uppercase">Master Max (y0)</label>
                                                     <input type="number"
@@ -485,12 +476,12 @@ function AirGaugeSettings() {
                                             {/* section x value   */}
                                             <div>
                                                 <div>
-                                                    <label className="text-[10px] font-bold text-secondary uppercase">Master Max (x0)</label>
+                                                    <label className="text-[10px] font-bold text-secondary uppercase">Sensor Max (x0)</label>
                                                     <input type="number"
                                                         disabled={isCalMax} step="0.0001" {...register(`airgauge_list.${index}.x0`)} className="w-full p-1 bg-transparent border-b border-border-color outline-none text-sm" />
                                                 </div>
                                                 <div>
-                                                    <label className="text-[10px] font-bold text-secondary uppercase">Master Min (x1)</label>
+                                                    <label className="text-[10px] font-bold text-secondary uppercase">Sensor Min (x1)</label>
                                                     <input type="number"
                                                         disabled={isCalMin} step="0.0001" {...register(`airgauge_list.${index}.x1`)} className="w-full p-1 bg-transparent border-b border-border-color outline-none text-sm" />
                                                 </div>

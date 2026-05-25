@@ -74,8 +74,8 @@ export const StepProvider = ({ children }: { children: ReactNode }) => {
           step4: specPoints.filter((p: any) => p.sensor_type === "air_gauge_x" || p.sensor_type === "air_gauge_y"),
         });
 
+        setCurrentStep(4);
       }
-      //throw error of something went wrong
       else {
         showWarning("Please select active product");
         throw new Error("Something went wrong");
@@ -110,7 +110,7 @@ export const StepProvider = ({ children }: { children: ReactNode }) => {
 
 
 
-  const zeroStep = () => setCurrentStep(1);
+  const zeroStep = () => setCurrentStep(4);
   const lastStep = () => setCurrentStep(-1);
   const goStep = (step: number) => setCurrentStep(step);
   const nextStep = () => setCurrentStep((prev) => prev + 1);

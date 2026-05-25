@@ -9,7 +9,6 @@ class ProductService:
 
 
     def create_product(self, product: ProductCreate):
-        # product_model = ProductModel(**product.model_dump())
         product_model = product.model_dump()
         try:
             self.repo.save(product_model)
@@ -39,3 +38,7 @@ class ProductService:
     def delete_product(self, product_id):
         self.repo.hybrid_delete(product_id)
         return product_id
+    
+    #get active product ( without jwt and role required)
+    def get_active_product(self):
+        return self.repo.get_active_product()

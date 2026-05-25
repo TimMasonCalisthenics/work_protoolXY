@@ -20,6 +20,7 @@ export const stop_readSensor = async () => {
         throw new Error(result.message || 'Failed to create measurement');
     }
     return result;
+
 };
 
 export const get_raw_value = async () => {
