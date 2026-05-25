@@ -128,41 +128,6 @@ class MeasurementService:
 
         draft_specs = []
 
-        # for p in product.spec_points:
-        #     if p.sensor_type == "air_gauge":
-        #         # for suffix in ["x", "y"]:
-        #         for sensorType in [CommonEnum.Airgauge_X_axis.value, CommonEnum.Airgauge_Y_axis.value]:
-        #             draft_specs.append({
-        #                 "measurement_id": data.id,
-        #                 "spec_point_id": p.id,
-        #                 "point_name": p.point_name,
-        #                 "min_value": p.ctrl_min_value if p.ctrl_min_value else p.min_value,
-        #                 "max_value": p.ctrl_max_value if p.ctrl_max_value else p.max_value,
-        #                 "nominal_value": p.start_value if p.start_value else p.nominal_value,
-        #                 "sensor_device_id": p.assigned_sensor_device_id,
-        #                 "value_key": p.sensor_value_key,
-        #                 "rule_type": p.rule_type,
-        #                 "required_count": p.required_count,
-        #                 "sensor_type": sensorType,
-        #                 "active_value": p.active_value,
-        #                 "group_id": p.group_id
-        #             })
-        #     else:
-        #         draft_specs.append({
-        #             "measurement_id": data.id,
-        #             "spec_point_id": p.id,
-        #             "point_name": p.point_name,
-        #             "min_value": p.min_value,
-        #             "max_value": p.max_value,
-        #             "nominal_value": p.nominal_value,
-        #             "sensor_device_id": p.assigned_sensor_device_id,
-        #             "value_key": p.sensor_value_key,
-        #             "rule_type": p.rule_type,
-        #             "required_count": p.required_count,
-        #             "sensor_type": p.sensor_type,
-        #             "active_value": p.active_value,
-        #             "group_id": p.group_id
-        #         })
         draft_specs = [
             {
                 "measurement_id": data.id,

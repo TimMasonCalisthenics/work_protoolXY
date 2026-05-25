@@ -208,24 +208,6 @@ function AirGaugeSettings() {
 
     };
 
-    const setConfirmModal = (title, message, onConfirm) => {
-        setDetailModal({
-            title: title,
-            message: message,
-            onConfirm: onConfirm,
-            onCancel: () => { setShowConfirmModal(false); setDetailModal(null) }
-        })
-        setShowConfirmModal(true);
-    }
-
-    const handleFormat = (index, value) => {
-        const num = parseFloat(value);
-        if (!isNaN(num)) {
-            const fixedValue = num.toFixed(precision);
-            setValue(`airgauge_list.${index}.x`, fixedValue);
-        }
-    };
-
     const handleSetAllMax = () => {
         fields.forEach((field, index) => {
             const currentX = getValues(`airgauge_list.${index}.x`);
@@ -258,6 +240,23 @@ function AirGaugeSettings() {
         showSuccess("Reset Min for all devices successfully!");
     };
 
+    const setConfirmModal = (title, message, onConfirm) => {
+        setDetailModal({
+            title: title,
+            message: message,
+            onConfirm: onConfirm,
+            onCancel: () => { setShowConfirmModal(false); setDetailModal(null) }
+        })
+        setShowConfirmModal(true);
+    }
+
+    const handleFormat = (index, value) => {
+        const num = parseFloat(value);
+        if (!isNaN(num)) {
+            const fixedValue = num.toFixed(precision);
+            setValue(`airgauge_list.${index}.x`, fixedValue);
+        }
+    };
     // React-hook-form handles onSubmit validation before calling our update function
     const onSubmit = (data) => handleUpdateJsonFromAPI(data);
     return (

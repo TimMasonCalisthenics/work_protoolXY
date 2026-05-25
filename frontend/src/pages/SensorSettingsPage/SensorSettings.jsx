@@ -55,6 +55,8 @@ function SensorSettings() {
                         <div className={activeTab === 'mitutoyo' ? 'block animate-in fade-in' : 'hidden'}>
                             <MitutoyoSettings />
                         </div>
+
+                        
                     </div>
                 </div>
             </div>

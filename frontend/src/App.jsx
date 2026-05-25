@@ -68,10 +68,16 @@ function Navigation() {
         roles: ['admin', 'supervisor', 'operator']
       },
       {
+        path: '/active-product-edit',
+        label: 'Active Product Edit',
+        icon: <HiOutlineWrench size={15} />,
+        roles: ['admin', 'supervisor']
+      },
+      {
         path: '/raw-value-logs',
         label: 'Raw Logs',
         icon: <HiOutlineServer size={15} />,
-        roles: ['admin']
+        roles: ['admin', 'supervisor']
       }
     ];
     return allItems.filter(item => item.roles.includes(user?.role));

@@ -1,0 +1,12 @@
+{
+    "SERVER_PORT": 5003,
+    "MOCK_MODE": false,
+    "SERIAL_PORT": "COM3",
+    "BAUD_RATE": 9600,
+    "OK_COMMANDS": [
+        "1,0,0,0"
+    ],
+    "NG_COMMANDS": [
+        "0,1,0,0"
+    ]
+}
