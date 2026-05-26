@@ -71,7 +71,7 @@ function AirGaugeSettings() {
 
     const handleStartPolling = () => {
         if (intervalRef.current) return;
-        const pollInterval = 100;
+        const pollInterval = 1000;
         setIsPolling(true);
         intervalRef.current = setInterval(fetchRealtimeData, pollInterval);
         console.log("Polling started...");

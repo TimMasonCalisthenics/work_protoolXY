@@ -65,8 +65,8 @@ class SensorService:
 
         raws_data = self.raw_repo.get_latest_grouped(
             measurement_id,
-            data.device_id,
-            max_required
+            data.device_id,        
+             max_required
         )
 
         raw_map = {}
@@ -125,11 +125,11 @@ class SensorService:
                             result["is_pass"]
                         )
 
-                        if result["is_pass"]:
-                            self.raw_repo.clear_by_point(
-                                measurement_id,
-                                spec.spec_point_id
-                            )     
+                        # if result["is_pass"]:
+                        #     self.raw_repo.clear_by_point(
+                        #         measurement_id,
+                        #         spec.spec_point_id
+                        #     )     
         self.sensor_repo.commit()
 
         return len(specs_to_process)

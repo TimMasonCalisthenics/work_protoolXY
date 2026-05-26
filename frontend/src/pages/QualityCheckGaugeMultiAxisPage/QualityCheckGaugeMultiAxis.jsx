@@ -126,7 +126,7 @@ function QualityCheckGaugeMultiAxis() {
     };
 
     fetchData();
-    const intervalId = setInterval(fetchData, 500);
+    const intervalId = setInterval(fetchData, 1000);
     return () => clearInterval(intervalId);
   }, [draftMeasurement?.id, isPollingActive]);
 

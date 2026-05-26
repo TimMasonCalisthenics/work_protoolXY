@@ -236,7 +236,8 @@ class MeasurementService:
                         measurement_id=measurement.id,
                         spec_point_id=rv.spec_point_id,
                         sensor_device_id=rv.sensor_device_id,
-                        raw_value=rv.raw_value
+                        raw_value=rv.raw_value,
+                        created_at=rv.created_at
                     )
 
             self.measurement_raw_repo.clear_tmp()

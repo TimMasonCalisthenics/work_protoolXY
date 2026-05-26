@@ -2,6 +2,7 @@ from typing import List, Optional
 from sqlalchemy import func
 from infrastructure.database.database import db
 from infrastructure.persistence.models.MeasurementRawValueLog import MeasurementRawValueLog
+from datetime import datetime
 
 class MeasurementRawValueLogRepository:
     def __init__(self, db):
@@ -12,14 +13,16 @@ class MeasurementRawValueLogRepository:
         measurement_id: int,
         spec_point_id: int,
         sensor_device_id: str,
-        raw_value: float
+        raw_value: float,
+        created_at:datetime
     ) -> MeasurementRawValueLog:
 
         raw = MeasurementRawValueLog(
             measurement_id=measurement_id,
             spec_point_id=spec_point_id,
             sensor_device_id=sensor_device_id,
-            raw_value=raw_value
+            raw_value=raw_value,
+            created_at=created_at
         )
 
         db.session.add(raw)
