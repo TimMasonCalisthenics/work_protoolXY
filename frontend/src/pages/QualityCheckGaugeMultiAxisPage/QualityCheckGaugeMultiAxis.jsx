@@ -126,7 +126,7 @@ function QualityCheckGaugeMultiAxis() {
     };
 
     fetchData();
-    const intervalId = setInterval(fetchData, 1000);
+    const intervalId = setInterval(fetchData, 500);
     return () => clearInterval(intervalId);
   }, [draftMeasurement?.id, isPollingActive]);
 
@@ -316,10 +316,9 @@ function QualityCheckGaugeMultiAxis() {
     try {
       // [สับสวิตช์ปิดทันที] บล็อกการแอบ Polling รอบสุดท้ายวิ่งมาล้างค่าหน้าจอ
       setIsPollingActive(false);
-      try
-      {
-          sendQualitySignal(passed);
-      }catch{
+      try {
+        sendQualitySignal(passed);
+      } catch {
 
       }
       await saveMeasurement("air_gauge_y");
@@ -328,7 +327,7 @@ function QualityCheckGaugeMultiAxis() {
       } else {
         showWarning("Air Gauge measurement failed and saved successfully");
       }
-      
+
       setDraftMeasurement(null);
       setForceShowStartButton(true);
 
